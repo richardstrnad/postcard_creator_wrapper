@@ -11,6 +11,8 @@ python:
 install:
  - "pip install -r requirements.txt"
  - pip install codecov
+ - python setup build
+ - python setup install
 
 # - "pip install tox-travis"
 
