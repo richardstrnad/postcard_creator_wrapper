@@ -22,14 +22,13 @@ def _trace_request(response):
     data = dump.dump_all(response)
     try:
         logger.trace(data.decode())
-    except Exception as e:
+    except Exception:
         data = str(data).replace('\\r\\n', '\r\n')
         logger.trace(data)
 
 
 class PostcardCreatorException(Exception):
     server_response = None
-    pass
 
 
 class Token(object):
@@ -58,7 +57,7 @@ class Token(object):
         try:
             self.fetch_token(username, password)
             return True
-        except PostcardCreatorException as e:
+        except PostcardCreatorException:
             return False
 
     # def store_token_to_cache(self, key, token):
@@ -106,7 +105,7 @@ class Token(object):
             self.token_expires_in = access_token['expires_in']
             self.token_fetched_at = datetime.datetime.now()
 
-        except PostcardCreatorException as ex:
+        except PostcardCreatorException:
             e = PostcardCreatorException(
                 'Could not get access_token. Something broke. '
                 'set increase debug verbosity to debug why')
@@ -264,7 +263,7 @@ class PostcardCreator(object):
             raise PostcardCreatorException('No Token given')
         self.token = token
         self.protocol = _protocol
-        self.host = '{}postcardcreator.post.ch/rest/2.1'.format(self.protocol)
+        self.host = '{}postcardcreator.post.ch/rest/2.2'.format(self.protocol)
         self._session = self._create_session()
 
     def _get_headers(self):
@@ -329,7 +328,7 @@ class PostcardCreator(object):
         card_id = self._create_card(user)
 
         picture_stream = self._rotate_and_scale_image(postcard.picture_stream, **kwargs)
-        asset_response = self._upload_asset(user, picture_stream=picture_stream)
+        asset_response = self._upload_asset(user, card_id=card_id, picture_stream=picture_stream)
         self._set_card_recipient(user_id=user_id, card_id=card_id, postcard=postcard)
         self._set_svg_page(1, user_id, card_id, postcard.get_frontpage(asset_id=asset_response['asset_id']))
         self._set_svg_page(2, user_id, card_id, postcard.get_backpage())
@@ -355,9 +354,9 @@ class PostcardCreator(object):
         mailing_response = self._do_op('post', endpoint, json=mailing_payload)
         return mailing_response.headers['Location'].partition('mailings/')[2]
 
-    def _upload_asset(self, user, picture_stream):
+    def _upload_asset(self, user, card_id, picture_stream):
         logger.debug('uploading postcard asset')
-        endpoint = '/users/{}/assets'.format(user["userId"])
+        endpoint = '/users/{}/mailings/{}/assets'.format(user["userId"], card_id)
 
         files = {
             'title': (None, 'Title of image'),
@@ -417,7 +416,7 @@ class PostcardCreator(object):
 
             cover = resizeimage.resize_cover(image, [width, height], validate=True)
             with BytesIO() as f:
-                cover.save(f, 'JPEG')
+                cover.save(f, 'PNG')
                 scaled = f.getvalue()
 
             if image_export:
